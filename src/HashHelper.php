@@ -2,6 +2,7 @@
 
 namespace JarirAhmed\HashHelper;
 use ChristianRiesen\Base32;
+use Exception;
 
 class HashHelper
 {
@@ -259,11 +260,21 @@ class HashHelper
         return base64_encode($iv . openssl_encrypt($data, $cipher, $key, 0, $iv));
     }
 
-    public static function encryptRSA(string $data, string $public staticKey): string
+    public static function encryptRSA(string $data, string $publicKey): string
     {
-        openssl_public static_encrypt($data, $encrypted, $public staticKey);
+        $pubKey = openssl_pkey_get_public($publicKey);
+        if (!$pubKey) {
+            throw new Exception('Invalid public key.');
+        }
+    
+        $success = openssl_public_encrypt($data, $encrypted, $pubKey);
+        if (!$success) {
+            throw new Exception('Encryption failed.');
+        }
+    
         return base64_encode($encrypted);
     }
+
 
  public static function toBase58(string $input): string
 {
@@ -398,14 +409,23 @@ public static function base85_decode(string $input): string
 {
     $decoded = '';
     $length = strlen($input);
-    $chunks = ceil($length / 5);
+
+    if ($length % 5 !== 0) {
+        throw new \InvalidArgumentException("Invalid Base85 input length.");
+    }
+
+    $chunks = $length / 5;
 
     for ($i = 0; $i < $chunks; $i++) {
         $chunk = substr($input, $i * 5, 5);
         $intValue = 0;
 
-        for ($j = 0; $j < strlen($chunk); $j++) {
-            $intValue = $intValue * 85 + strpos(self::BASE85_ALPHABET, $chunk[$j]);
+        for ($j = 0; $j < 5; $j++) {
+            $pos = strpos(self::BASE85_ALPHABET, $chunk[$j]);
+            if ($pos === false) {
+                throw new \InvalidArgumentException("Invalid character '{$chunk[$j]}' in Base85 input.");
+            }
+            $intValue = $intValue * 85 + $pos;
         }
 
         for ($j = 0; $j < 4; $j++) {
@@ -416,14 +436,15 @@ public static function base85_decode(string $input): string
     return rtrim($decoded, "\0");
 }
 
+
 public static function ascii85_encode(string $input): string
 {
-    return $this->base85_encode($input); 
+    return self::base85_encode($input); 
 }
 
 public static function ascii85_decode(string $input): string
 {
-    return $this->base85_decode($input); 
+    return self::base85_decode($input); 
 }
 
 
@@ -460,7 +481,7 @@ public static function xor_encode(string $input, string $key): string
 
 public static function xor_decode(string $input, string $key): string
 {
-    return $this->xor_encode($input, $key); // XOR is symmetric
+    return self::xor_encode($input, $key); // XOR is symmetric
 }
 
 }
